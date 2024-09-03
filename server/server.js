@@ -65,10 +65,10 @@ app.post('/extract-pricing-info', async (req, res) => {
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o-mini",
         messages: [
           {role: "system", content: "You are a helpful assistant that extracts pricing information from web pages."},
-          {role: "user", content: `Extract all relevant pricing information from this HTML content: ${htmlContent}`}
+          {role: "user", content: `Extract basic pricing including tiers, features, and how pricing scales from the following: ${htmlContent}`}
         ],
       });
 

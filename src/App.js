@@ -23,12 +23,14 @@ function App() {
       
       if (foundPricingUrl) {
         setPricingUrl(foundPricingUrl);
+        let extractedInfo = ''
         try {
-          const extractedInfo = await extractPricingInfo(foundPricingUrl);
+          extractedInfo = await extractPricingInfo(foundPricingUrl); // Remove 'const'
           setPricingInfo(extractedInfo || 'Unable to extract pricing information');
         } catch (extractError) {
           console.error('Error extracting pricing info:', extractError);
           setPricingInfo('Error extracting pricing information');
+          extractedInfo = 'Error extracting pricing information';
         }
 
         const urlsRef = ref(database, 'urls');
