@@ -5,6 +5,7 @@ const axios = require('axios');
 const { OpenAI } = require("openai");  // Updated import
 const rateLimit = require('express-rate-limit');
 const cheerio = require('cheerio'); // You'll need to install this: npm install cheerio
+const puppeteer = require('puppeteer');
 
 const app = express();
 app.use(cors());
@@ -59,34 +60,42 @@ app.post('/extract-pricing-info', async (req, res) => {
   const { url } = req.body;
   try {
     console.log('Received request to extract pricing info from:', url);
-    const response = await axios.get(url);
-    const htmlContent = response.data;
-    console.log('Successfully fetched HTML content');
+    
+    // Launch a headless browser
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    
+    // Navigate to the URL and wait for the content to load
+    await page.goto(url, { waitUntil: 'networkidle0' });
+    
+    // Take a screenshot
+    const screenshot = await page.screenshot({ encoding: 'base64' });
+    
+    await browser.close();
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
-          {role: "system", content: "You are a helpful assistant that extracts pricing information from web pages."},
-          {role: "user", content: `Extract basic pricing including tiers, features, and how pricing scales from the following: ${htmlContent}`}
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Extract basic pricing including tiers, features, and how pricing scales from this image of a pricing page." },
+              { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
+            ],
+          },
         ],
       });
 
       console.log('OpenAI API response received');
       res.json({ pricingInfo: completion.choices[0].message.content });
     } catch (openaiError) {
-      console.error('OpenAI API error, falling back to simple extraction:', openaiError.message);
-      const $ = cheerio.load(htmlContent);
-      const simplePricingInfo = $('body').text().substring(0, 1000); // Get first 1000 characters of body text
-      res.json({ pricingInfo: simplePricingInfo, fallback: true });
+      console.error('OpenAI API error:', openaiError.message);
+      res.status(500).json({ error: 'Error processing the image', details: openaiError.message });
     }
   } catch (error) {
     console.error('Error extracting pricing information:', error.message);
-    if (error.response && error.response.status === 429) {
-      res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
-    } else {
-      res.status(500).json({ error: 'Error extracting pricing information', details: error.message });
-    }
+    res.status(500).json({ error: 'Error extracting pricing information', details: error.message });
   }
 });
 
