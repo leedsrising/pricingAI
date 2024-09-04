@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { database } from './firebase';
+import { database } from './firebase.js';
 import { ref, push } from 'firebase/database';
-import findPricingPage from './utils/findPricingPage';
-import extractPricingInfo from './utils/extractPricingInfo';
+import findPricingPage from './utils/findPricingPage.js';
+import extractPricingInfo from './utils/extractPricingInfo.js';
 import './App.css';
 
 function App() {

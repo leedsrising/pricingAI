@@ -1,11 +1,12 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const { OpenAI } = require("openai");  // Updated import
-const rateLimit = require('express-rate-limit');
-const cheerio = require('cheerio'); // You'll need to install this: npm install cheerio
-const puppeteer = require('puppeteer');
+import dotenv from 'dotenv';
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import { OpenAI } from "openai";
+import rateLimit from 'express-rate-limit';
+import puppeteer from 'puppeteer';
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
