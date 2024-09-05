@@ -9,7 +9,13 @@ import puppeteer from 'puppeteer';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// Update CORS configuration
+app.use(cors({
+  origin: [process.env.FRONTEND_URL || 'https://pricing-ai.vercel.app/', 'http://localhost:3000'],
+  credentials: true,
+}));
+
 app.use(express.json());
 
 // Create a limiter: max 5 requests per minute
