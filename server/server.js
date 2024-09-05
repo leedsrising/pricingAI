@@ -81,15 +81,34 @@ app.post('/extract-pricing-info', async (req, res) => {
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract basic pricing including tiers, features, and how pricing scales from this image of a pricing page." },
+              { type: "text", text: "Extract pricing information from this image. Format the response as a JSON object with 'features' as an array of feature names (including price), and 'tiers' as an array of tier objects. Each tier object should have a 'name' and values corresponding to each feature. If there are no tiers, create three usage levels (e.g., 'Low', 'Medium', 'High') and estimate prices for each level." },
               { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
             ],
           },
         ],
+        max_tokens: 4096,
       });
 
       console.log('OpenAI API response received');
-      res.json({ pricingInfo: completion.choices[0].message.content });
+      let pricingData;
+      try {
+        const content = completion.choices[0].message.content;
+        // Use regex to extract JSON content from markdown code block
+        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
+        
+        if (jsonMatch && jsonMatch[1]) {
+          // Parse the extracted JSON content
+          pricingData = JSON.parse(jsonMatch[1]);
+        } else {
+          // If no JSON block is found, return the raw content
+          pricingData = { rawContent: content };
+        }
+      } catch (jsonError) {
+        console.error('Error parsing JSON:', jsonError);
+        // If parsing fails, return the raw content
+        pricingData = { rawContent: completion.choices[0].message.content };
+      }
+      res.json({ pricingInfo: pricingData });
     } catch (openaiError) {
       console.error('OpenAI API error:', openaiError.message);
       res.status(500).json({ error: 'Error processing the image', details: openaiError.message });

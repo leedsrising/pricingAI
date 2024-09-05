@@ -8,14 +8,14 @@ import './App.css';
 function App() {
   const [url, setUrl] = useState('');
   const [pricingUrl, setPricingUrl] = useState('');
-  const [pricingInfo, setPricingInfo] = useState('');
+  const [processedPricingInfo, setProcessedPricingInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setPricingUrl('');
-    setPricingInfo('');
+    setProcessedPricingInfo(null);
 
     try {
       const foundPricingUrl = await findPricingPage(url);
@@ -23,24 +23,21 @@ function App() {
       
       if (foundPricingUrl) {
         setPricingUrl(foundPricingUrl);
-        let extractedInfo = ''
-        try {
-          extractedInfo = await extractPricingInfo(foundPricingUrl); // Remove 'const'
-          setPricingInfo(extractedInfo || 'Unable to extract pricing information');
-        } catch (extractError) {
-          console.error('Error extracting pricing info:', extractError);
-          setPricingInfo('Error extracting pricing information');
-          extractedInfo = 'Error extracting pricing information';
-        }
+        let { processedPricingInfo, rawPricingInfo } = await extractPricingInfo(foundPricingUrl);
+        setProcessedPricingInfo(processedPricingInfo);
 
         const urlsRef = ref(database, 'urls');
         const now = new Date();
-        push(urlsRef, {
+
+        const firebasePayload = {
           inputUrl: url,
           pricingUrl: foundPricingUrl,
-          pricingInfo: extractedInfo,
+          rawPricingInfo,
+          processedPricingInfo,
           readableDate: now.toLocaleString()
-        });
+        };
+
+        await push(urlsRef, firebasePayload);
       } else {
         setPricingUrl('No pricing page found');
       }
@@ -54,9 +51,61 @@ function App() {
     setUrl('');
   };
 
+  const renderPricingTable = () => {
+    if (!processedPricingInfo || !processedPricingInfo.features || !processedPricingInfo.tiers) {
+      return null;
+    }
+
+    return (
+      <table className="pricing-table">
+        <thead>
+          <tr>
+            <th>Features</th>
+            {processedPricingInfo.tiers.map((tier, index) => (
+              <th key={index}>{tier.name}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {processedPricingInfo.features.map((feature, index) => (
+            <tr key={index}>
+              <td>{feature}</td>
+              {processedPricingInfo.tiers.map((tier, tierIndex) => (
+                <td key={tierIndex}>{tier[feature] || '-'}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  const renderPricingInfo = () => {
+    if (!processedPricingInfo) {
+      console.log('processedPricingInfo is null or undefined');
+      return null;
+    }
+
+    console.log('Rendering pricing info:', JSON.stringify(processedPricingInfo, null, 2));
+
+    if (processedPricingInfo.features && processedPricingInfo.tiers) {
+      return renderPricingTable();
+    } else if (processedPricingInfo.rawContent) {
+      return (
+        <div className="raw-content">
+          <pre>{processedPricingInfo.rawContent}</pre>
+        </div>
+      );
+    } else if (processedPricingInfo.error) {
+      return <p>{processedPricingInfo.error}</p>;
+    } else {
+      return <p>Unable to extract structured pricing information.</p>;
+    }
+  };
+
   return (
     <div className="App">
-      <header className="App-header">
+      <header className="App-header"> 
         <h1>pricing.ai</h1>
         <form onSubmit={handleSubmit} className="url-input-container">
           <input
@@ -76,10 +125,10 @@ function App() {
             <p>{pricingUrl}</p>
           </div>
         )}
-        {pricingInfo && (
+        {processedPricingInfo && (
           <div className="result">
             <h2>Extracted Pricing Information:</h2>
-            <p>{pricingInfo}</p>
+            {renderPricingInfo()}
           </div>
         )}
       </header>
