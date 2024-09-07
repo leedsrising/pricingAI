@@ -26,10 +26,12 @@
     "concurrently": "^6.2.1"
   },
   "scripts": {
-    "start": "npm run build && node server/server.js",
+    "start": "node server/server.js",
     "start:server": "node server/server.js",
     "start:frontend": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "react-scripts build",
+    "build:backend": "echo 'No build step for backend'",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "dev": "concurrently \"npm run start:server\" \"npm run start:frontend\""
@@ -54,5 +56,8 @@
   },
   "engines": {
     "node": "20.17.0"
+  },
+  "puppeteer": {
+    "args": ["--no-sandbox"]
   }
 }
