@@ -5,8 +5,13 @@ import axios from 'axios';
 import { OpenAI } from "openai";
 import rateLimit from 'express-rate-limit';
 import puppeteer from 'puppeteer';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -123,6 +128,19 @@ app.post('/extract-pricing-info', async (req, res) => {
     console.error('Error extracting pricing information:', error.message);
     res.status(500).json({ error: 'Error extracting pricing information', details: error.message });
   }
+});
+
+// Add this near the top of your routes
+app.get('/', (req, res) => {
+  res.send('Server is running');
+});
+
+// Serve static files from the React frontend app
+app.use(express.static(path.join(__dirname, '../build')));
+
+// After your API routes, add this:
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../build', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3001;
