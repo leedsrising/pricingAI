@@ -12,7 +12,7 @@ const app = express();
 
 // Update CORS configuration
 app.use(cors({
-  origin: [process.env.FRONTEND_URL || 'https://pricing-ai.vercel.app/', 'http://localhost:3000'],
+  origin: process.env.FRONTEND_URL || 'https://pricing-ai.vercel.app',
   credentials: true,
 }));
 
