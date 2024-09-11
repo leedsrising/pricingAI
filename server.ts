@@ -66,6 +66,7 @@ async function extractPricingData(url: string): Promise<any> {
     });
 
     const page = await browser.newPage();
+    await page.setDefaultNavigationTimeout(100000); // extend timeout
     await page.goto(url, { waitUntil: 'networkidle0' });
     
     const screenshot = await page.screenshot({ encoding: 'base64' });
