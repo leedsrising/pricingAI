@@ -77,7 +77,7 @@ async function extractPricingData(url: string): Promise<any> {
         {
           role: "user",
           content: [
-            { type: "text", text: "Extract pricing information from this image. Format the response as a JSON object with 'features' as an array of feature names (including price), and 'tiers' as an array of tier objects. Each tier object should have a 'name' and values corresponding to each feature. If there are no tiers, create three usage levels (e.g., 'Low', 'Medium', 'High') and estimate prices for each level." },
+            { type: "text", text: "Return a cropped image that only captures the primary pricing table or pricing information." },
             { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
           ],
         },
