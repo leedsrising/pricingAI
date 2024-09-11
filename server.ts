@@ -32,8 +32,11 @@ app.post('/api/getPricing', async (req, res) => {
     const pricingData = await extractPricingData(pricingUrl);
     res.status(200).json({ pricingData });
   } catch (error) {
-    console.error('Error in getPricing:', error);
-    res.status(500).json({ error: 'Error processing the request', details: error.message });
+    if (error instanceof Error) {
+      res.status(500).json({ error: 'Error processing the request', details: error.message });
+    } else {
+      res.status(500).json({ error: 'Error processing the request', details: 'Unknown error' });
+    }
   }
 });
 
@@ -85,7 +88,11 @@ async function extractPricingData(url: string): Promise<any> {
     let pricingData;
     try {
       const content = completion.choices[0].message.content;
-      pricingData = JSON.parse(content);
+      if (content !== null) {
+        pricingData = JSON.parse(content);
+      } else {
+        console.error('Content is null');
+      }
     } catch (jsonError) {
       console.error('Error parsing JSON:', jsonError);
       pricingData = { rawContent: completion.choices[0].message.content };
