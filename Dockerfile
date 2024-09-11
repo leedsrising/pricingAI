@@ -1,13 +1,21 @@
-FROM ghcr.io/puppeteer/puppeteer:latest
+FROM --platform=linux/amd64 ghcr.io/puppeteer/puppeteer:latest
 
-WORKDIR /usr/src/app
+# Set working directory to the home directory of pptruser
+WORKDIR /home/pptruser
 
-COPY package*.json ./
+# Switch to pptruser
+USER pptruser
 
-RUN npm install
+# Copy package.json and package-lock.json (if available)
+COPY --chown=pptruser:pptruser package*.json ./
 
-COPY . .
+# Install dependencies
+RUN npm install --verbose
 
+# Copy the rest of your app's source code
+COPY --chown=pptruser:pptruser . .
+
+# Build your app
 RUN npm run build
 
 EXPOSE 3001
