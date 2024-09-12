@@ -11,6 +11,7 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
+const IS_LOCAL_ENV = process.env.IS_LOCAL_ENV === 'true';
 
 app.use(cors());
 app.use(express.json());
@@ -95,11 +96,12 @@ async function extractPricingData(url: string): Promise<any> {
     // Take full page screenshot
     const screenshot = await page.screenshot({ fullPage: true });
 
-    // Save the screenshot locally
-    const screenshotPath = path.join(__dirname, 'screenshot.png');
-    fs.writeFileSync(screenshotPath, screenshot);
-    
-    console.log(`Screenshot saved at: ${screenshotPath}`);
+    // if on local, save screenshot for easy QA
+    if (IS_LOCAL_ENV) {
+      const screenshotPath = path.join(__dirname, 'screenshot.png');
+      fs.writeFileSync(screenshotPath, screenshot);
+      console.log(`Full page screenshot saved at: ${screenshotPath}`);
+    }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
