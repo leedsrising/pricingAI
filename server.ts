@@ -77,7 +77,7 @@ async function extractPricingData(url: string): Promise<any> {
     
     // Scroll to bottom to ensure all content is loaded
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for any lazy-loaded content
+    // await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for any lazy-loaded content
 
     // Get the full height of the page
     const bodyHandle = await page.$('body');
@@ -122,8 +122,10 @@ async function extractPricingData(url: string): Promise<any> {
     
             Rules:
             1. Include all visible tiers.
-            2. "features" should be an array of strings, each representing a distinct feature.
-            3. Do not include any marketing language or general descriptions.
+            2. "features" should be a dictionary where each key is a distinct feature name using language from the pricing page. Units (millions, $, days) should be part of the value and not the feature name. The value is what that specific tier offers for the feature.
+            3. any feature used as a key in one tier should be used as a key in all tiers, with the value being the feature's value in that tier.
+            4. Do not include any marketing language or general descriptions.
+            5. any value >1000 should use shorthand (i.e. 1K, 1M, 1B)
     
             Provide only the raw JSON object without any additional text, comments, or formatting.` 
             },
