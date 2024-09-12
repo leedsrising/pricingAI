@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import puppeteer from 'puppeteer';
 import { OpenAI } from 'openai';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -67,9 +69,37 @@ async function extractPricingData(url: string): Promise<any> {
 
     const page = await browser.newPage();
     await page.setDefaultNavigationTimeout(100000); // extend timeout
+
+    // Set a large viewport
+    await page.setViewport({width: 1920, height: 1080});
+
     await page.goto(url, { waitUntil: 'networkidle0' });
     
-    const screenshot = await page.screenshot({ encoding: 'base64' });
+    // Scroll to bottom to ensure all content is loaded
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for any lazy-loaded content
+
+    // Get the full height of the page
+    const bodyHandle = await page.$('body');
+    if (!bodyHandle) throw new Error('Unable to find body element');
+    
+    const boundingBox = await bodyHandle.boundingBox();
+    if (!boundingBox) throw new Error('Unable to get bounding box');
+    
+    const height = boundingBox.height;
+    await bodyHandle.dispose();
+
+    // Set viewport to full page height
+    await page.setViewport({width: 1920, height: Math.ceil(height)});
+
+    // Take full page screenshot
+    const screenshot = await page.screenshot({ fullPage: true });
+
+    // Save the screenshot locally
+    const screenshotPath = path.join(__dirname, 'screenshot.png');
+    fs.writeFileSync(screenshotPath, screenshot);
+    
+    console.log(`Screenshot saved at: ${screenshotPath}`);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -77,12 +107,35 @@ async function extractPricingData(url: string): Promise<any> {
         {
           role: "user",
           content: [
-            { type: "text", text: "Extract pricing information from this image. Format the response as a JSON object with 'features' as an array of feature names (including price), and 'tiers' as an array of tier objects. Each tier object should have a 'name' and values corresponding to each feature. If there are no tiers, create three usage levels (e.g., 'Low', 'Medium', 'High') and estimate prices for each level." },
-            { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
+            { type: "text", text: `Analyze the pricing information in this image. 
+            Create a JSON object with the following strict format:
+            {
+              "tiers": [
+                {
+                  "name": "Tier Name",
+                  "price": "$/time period",
+                  "features": ["Feature 1", "Feature 2", ...]
+                },
+                ...
+              ]
+            }
+    
+            Rules:
+            1. Include all visible tiers.
+            2. "features" should be an array of strings, each representing a distinct feature.
+            3. Do not include any marketing language or general descriptions.
+    
+            Provide only the raw JSON object without any additional text, comments, or formatting.` 
+            },
+            { 
+              type: "image_url", 
+              image_url: { 
+                url: `data:image/png;base64,${Buffer.from(screenshot).toString('base64')}`
+              } 
+            }
           ],
         },
       ],
-      max_tokens: 4096,
     });
 
     console.log('OpenAI API response received');
@@ -96,7 +149,6 @@ async function extractPricingData(url: string): Promise<any> {
       }
     } catch (jsonError) {
       console.error('Error parsing JSON:', jsonError);
-      pricingData = { rawContent: completion.choices[0].message.content };
     }
     return pricingData;
   } catch (error) {
