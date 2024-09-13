@@ -64,19 +64,34 @@ async function findPricingPage(baseUrl: string): Promise<string> {
 async function extractPricingData(url: string): Promise<any> {
   let browser;
   try {
+    console.log('Launching browser');
     browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       headless: true
     });
+    console.log('Browser launched');
 
+    console.log('Creating new page');
     const page = await browser.newPage();
+    console.log('New page created');
     await page.setDefaultNavigationTimeout(100000); // extend timeout
 
     // Set a large viewport
     await page.setViewport({width: 1920, height: 1080});
 
+    console.log('Navigating to URL');
     await page.goto(url, { waitUntil: 'networkidle0' });
+    console.log('Navigation complete');
     
     // Scroll to bottom to ensure all content is loaded
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -96,7 +111,9 @@ async function extractPricingData(url: string): Promise<any> {
     await page.setViewport({width: 1920, height: Math.ceil(height)});
 
     // Take full page screenshot
+    console.log('Taking screenshot');
     const screenshot = await page.screenshot({ fullPage: true });
+    console.log('Screenshot taken');
 
     // if on local, save screenshot for easy QA
     if (IS_LOCAL_ENV) {
