@@ -66,6 +66,8 @@ async function extractPricingData(url: string): Promise<any> {
   try {
     browser = await puppeteer.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      headless: true
     });
 
     const page = await browser.newPage();
