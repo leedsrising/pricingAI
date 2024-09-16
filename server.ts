@@ -33,7 +33,7 @@ app.post('/api/getPricing', async (req, res) => {
     console.log('Found pricing URL:', pricingUrl);
     
     const pricingData = await extractPricingData(pricingUrl);
-    res.status(200).json({ pricingData });
+    res.status(200).json(pricingData);
   } catch (error) {
     if (error instanceof Error) {
       res.status(500).json({ error: 'Error processing the request', details: error.message });
@@ -122,58 +122,76 @@ async function extractPricingData(url: string): Promise<any> {
       console.log(`Full page screenshot saved at: ${screenshotPath}`);
     }
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: `Analyze the pricing information in this image. 
-            Create a JSON object with the following strict format:
-            {
-              "tiers": [
-                {
-                  "name": "Tier Name",
-                  "price": "$/time period",
-                  "features": ["Feature 1", "Feature 2", ...]
-                },
-                ...
-              ]
-            }
-    
-            Rules:
-            1. Include all visible tiers.
-            2. "features" should be a dictionary where each key is a distinct feature name using language from the pricing page. Units (millions, $, days) should be part of the value and not the feature name. The value is what that specific tier offers for the feature.
-            3. any feature used as a key in one tier should be used as a key in all tiers, with the value being the feature's value in that tier.
-            4. Do not include any marketing language or general descriptions.
-            5. any value >1000 should use shorthand (i.e. 1K, 1M, 1B)
-    
-            Provide only the raw JSON object without any additional text, comments, or formatting.` 
-            },
-            { 
-              type: "image_url", 
-              image_url: { 
-                url: `data:image/png;base64,${Buffer.from(screenshot).toString('base64')}`
-              } 
-            }
-          ],
-        },
-      ],
-    });
-
-    console.log('OpenAI API response received');
+    const maxAttempts = 3;
+    let attempt = 0;
     let pricingData;
-    try {
-      const content = completion.choices[0].message.content;
-      if (content !== null) {
-        pricingData = JSON.parse(content);
-      } else {
-        console.error('Content is null');
+
+    while (attempt < maxAttempts) {
+      try {
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: `Analyze the pricing information in this image. 
+                Create a JSON object with the following strict format:
+                [
+                  {
+                    "name": "Tier Name",
+                    "price": "$/time period",
+                  "features": ["Feature 1", "Feature 2", ...]
+                  },
+                  ...
+                ]
+                  
+                Rules:
+                1. Include all visible tiers.
+                2. "features" should be a dictionary where each key is a distinct feature name using language from the pricing page. Units (millions, $, days) should be part of the value and not the feature name. The value is what that specific tier offers for the feature.
+                3. any feature used as a key in one tier should be used as a key in all tiers, with the value being the feature's value in that tier.
+                4. Do not include any marketing language or general descriptions.
+                5. any value >1000 should use shorthand (i.e. 1K, 1M, 1B)
+    
+                Provide only the raw JSON object without any additional text, comments, or formatting.` 
+                },
+                { 
+                  type: "image_url", 
+                  image_url: { 
+                    url: `data:image/png;base64,${Buffer.from(screenshot).toString('base64')}`
+                  } 
+                }
+              ],
+            },
+          ],
+        });
+
+        const content = completion.choices[0].message.content;
+        if (content !== null) {
+          const parsedContent = JSON.parse(content);
+          
+          // Check if the parsed content matches the expected format
+          if (isValidPricingData(parsedContent)) {
+            pricingData = parsedContent.tiers || parsedContent;
+            break;  // Exit the loop if valid data is found
+          } else {
+            console.log(parsedContent);
+            console.log(`Attempt ${attempt + 1}: Invalid format, retrying...`);
+          }
+        }
+      } catch (error) {
+        console.error(`Error on attempt ${attempt + 1}:`, error);
       }
-    } catch (jsonError) {
-      console.error('Error parsing JSON:', jsonError);
+
+      attempt++;
     }
+
+    if (!pricingData) {
+      throw new Error('Failed to generate valid pricing data after multiple attempts');
+    }
+
+    console.log(pricingData)
     return pricingData;
+    
   } catch (error) {
     console.error('Error extracting pricing information:', error);
     throw error;
@@ -182,6 +200,24 @@ async function extractPricingData(url: string): Promise<any> {
       await browser.close();
     }
   }
+}
+
+function isValidPricingData(data: any): boolean {
+  // Check if data is an array or has a 'tiers' property that is an array
+  const tiers = Array.isArray(data) ? data : data.tiers;
+  
+  if (!Array.isArray(tiers) || tiers.length === 0) {
+    return false;
+  }
+
+  // Check if each tier has the required properties
+  return tiers.every(tier => 
+    typeof tier.name === 'string' &&
+    typeof tier.price === 'string' &&
+    typeof tier.features === 'object' &&
+    !Array.isArray(tier.features) &&
+    Object.keys(tier.features).every(key => typeof key === 'string' && typeof tier.features[key] === 'string')
+  );
 }
 
 app.listen(port, () => {
