@@ -1,24 +1,23 @@
 FROM ghcr.io/puppeteer/puppeteer:latest
 
-# Install specific Chrome version
-RUN apt-get update && apt-get install -y wget gnupg \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable=114.0.5735.198-1 \
-    && rm -rf /var/lib/apt/lists/*
+# Create app directory and set permissions
+USER root
+RUN mkdir -p /home/node/app && chown -R node:node /home/node/app
 
 # Set working directory
-WORKDIR /app
+WORKDIR /home/node/app
+
+# Switch to non-root user
+USER node
 
 # Copy package.json and package-lock.json
-COPY package*.json ./
+COPY --chown=node:node package*.json ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy the rest of the application
-COPY . .
+COPY --chown=node:node . .
 
 # Build your app
 RUN npm run build
