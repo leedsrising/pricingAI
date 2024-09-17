@@ -43,6 +43,24 @@ app.post('/api/getPricing', async (req, res) => {
   }
 });
 
+app.post('/api/getCompetitors', async (req, res) => {
+  try {
+    const { company } = req.body;
+    if (!company) {
+      return res.status(400).json({ error: 'Company URL is required' });
+    }
+
+    const competitors = await findCompetitors(company);
+    res.status(200).json(competitors);
+  } catch (error) {
+    if (error instanceof Error) {
+      res.status(500).json({ error: 'Error processing the request', details: error.message });
+    } else {
+      res.status(500).json({ error: 'Error processing the request', details: 'Unknown error' });
+    }
+  }
+});
+
 async function findPricingPage(baseUrl: string): Promise<string> {
   const query = `${baseUrl} pricing`;
   const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${encodeURIComponent(query)}`;
@@ -218,6 +236,31 @@ function isValidPricingData(data: any): boolean {
     !Array.isArray(tier.features) &&
     Object.keys(tier.features).every(key => typeof key === 'string' && typeof tier.features[key] === 'string')
   );
+}
+
+async function findCompetitors(company: string): Promise<{ name: string; url: string }[]> {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: `List 3-5 close, direct competitors of ${company}.
+        
+        Return a JSON object with the following strict schema:
+        [
+          {
+            "name": "Competitor Name",
+            "url": "Primary Competitor homepage URL"
+          },
+          ...
+        ]`
+      }
+    ],
+    response_format: { type: "json_object" }
+  });
+
+  const content = completion.choices[0].message.content;
+  return content ? JSON.parse(content) : [];
 }
 
 app.listen(port, () => {
