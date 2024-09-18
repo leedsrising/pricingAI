@@ -140,74 +140,68 @@ async function extractPricingData(url: string): Promise<any> {
       console.log(`Full page screenshot saved at: ${screenshotPath}`);
     }
 
-    const maxAttempts = 3;
-    let attempt = 0;
-    let pricingData;
+    let pricingData: any;
 
-    while (attempt < maxAttempts) {
-      try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: `Analyze the pricing information in this image. 
-                Create a JSON object with the following strict format:
-                [
-                  {
-                    "name": "Tier Name",
-                    "price": "$/time period",
-                  "features": ["Feature 1", "Feature 2", ...]
-                  },
-                  ...
-                ]
-                  
-                Rules:
-                1. Include all visible tiers.
-                2. "features" should be a dictionary where each key is a distinct feature name using language from the pricing page. Units (millions, $, days) should be part of the value and not the feature name. The value is what that specific tier offers for the feature.
-                3. any feature used as a key in one tier should be used as a key in all tiers, with the value being the feature's value in that tier.
-                4. Do not include any marketing language or general descriptions.
-                5. any value >1000 should use shorthand (i.e. 1K, 1M, 1B)
-    
-                Provide only the raw JSON object without any additional text, comments, or formatting.` 
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `Analyze the pricing information in this image. 
+              Create a JSON object with the following strict format:
+              [
+                {
+                  "name": "Tier Name",
+                  "price": "$/time period",
+                  "features": {"Feature 1": "Value 1", "Feature 2": "Value 2", ...}
                 },
-                { 
-                  type: "image_url", 
-                  image_url: { 
-                    url: `data:image/png;base64,${Buffer.from(screenshot).toString('base64')}`
-                  } 
-                }
-              ],
-            },
-          ],
-        });
+                ...
+              ]
+                
+              Rules:
+              1. Include all visible tiers.
+              2. "features" should be a dictionary where each key is a distinct feature name using language from the pricing page. Units (millions, $, days) should be part of the value and not the feature name. The value is what that specific tier offers for the feature.
+              3. any feature used as a key in one tier should be used as a key in all tiers, with the value being the feature's value in that tier.
+              4. Do not include any marketing language or general descriptions.
+              5. any value >1000 should use shorthand (i.e. 1K, 1M, 1B)
 
-        const content = completion.choices[0].message.content;
-        if (content !== null) {
-          const parsedContent = JSON.parse(content);
-          
-          // Check if the parsed content matches the expected format
-          if (isValidPricingData(parsedContent)) {
-            pricingData = parsedContent.tiers || parsedContent;
-            break;  // Exit the loop if valid data is found
-          } else {
-            console.log(parsedContent);
-            console.log(`Attempt ${attempt + 1}: Invalid format, retrying...`);
-          }
+              Provide only the raw JSON object without any additional text, comments, or formatting.` 
+              },
+              { 
+                type: "image_url", 
+                image_url: { 
+                  url: `data:image/png;base64,${Buffer.from(screenshot).toString('base64')}`
+                } 
+              }
+            ],
+          },
+        ],
+      });
+
+      const content = completion.choices[0].message.content;
+      
+
+      if (content !== null) {
+        pricingData = JSON.parse(content);
+        
+        if (!isValidPricingData(pricingData)) {
+          throw new Error('Invalid pricing data format');
         }
-      } catch (error) {
-        console.error(`Error on attempt ${attempt + 1}:`, error);
+      } else {
+        throw new Error('No content in OpenAI response');
       }
-
-      attempt++;
+    } catch (error) {
+      console.error('Error extracting pricing information:', error);
+      throw error;
     }
 
     if (!pricingData) {
-      throw new Error('Failed to generate valid pricing data after multiple attempts');
+      throw new Error('Failed to generate valid pricing data');
     }
 
-    console.log(pricingData)
+    console.log(pricingData);
     return pricingData;
     
   } catch (error) {
